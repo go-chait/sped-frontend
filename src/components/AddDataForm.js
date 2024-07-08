@@ -1,39 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../App.css";
+import axios from "axios";
+import FormData from "form-data";
 
 const AddDataForm = ({ onAddData }) => {
   const [dataType, setDataType] = useState("PDF");
   const [dataLink, setDataLink] = useState("");
   const [dataFile, setDataFile] = useState(null);
-  const [dataName, setDataName] = useState("");
+  const [successMsg, setSuccessMsg] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newData = {
-      name: dataName,
-      type: dataType,
-      link: dataType === "Link" ? dataLink : "",
-      file: dataType === "PDF" ? dataFile : null,
-      status: "Pending",
-      date: new Date().toLocaleString(),
-    };
-    onAddData(newData);
-    setDataName("");
-    setDataLink("");
-    setDataFile(null);
-    setDataType("PDF");
-  };
+    const formData = new FormData();
+    let requestBody;
+    let contentType;
+    if (dataType === "PDF" && dataFile) {
+      formData.append('file', dataFile);
+      requestBody = formData;
+      contentType = "multipart/form-data";
+    }
+    else if (dataType === "Link" && dataLink) {
+      requestBody = {
+        "url": dataLink
+      };
+      contentType = "application/json";
+    }
+    try {
+      const response = await axios.post('http://localhost:8000/scrape/sped_scrape_and_insert', requestBody, {
+        headers: {
+          "Content-Type": contentType,
+          Authorization: `Bearer ${localStorage.getItem('isAuthenticated')}`
+        }
+      });
+      console.log(response);
+      if (response.status === 200) {
+        setSuccessMsg(response.data.detail);
+        e.target.reset();
+        setDataFile(null);
+        setDataLink("");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label>Data Name:</label>
-        <input
-          type="text"
-          value={dataName}
-          onChange={(e) => setDataName(e.target.value)}
-        />
-      </div>
+    <form className="add-data-form" onSubmit={handleSubmit}>
       <div>
         <label>Data Type:</label>
         <select value={dataType} onChange={(e) => setDataType(e.target.value)}>
@@ -61,7 +73,8 @@ const AddDataForm = ({ onAddData }) => {
           />
         </div>
       )}
-      <button type="submit">Add Data</button>
+      <button type="submit">Add</button>
+      {successMsg && <p className="success-msg">{successMsg}</p>}
     </form>
   );
 };
