@@ -5,18 +5,30 @@ import AddDataForm from "./components/AddDataForm";
 import DataTable from "./components/DataTable";
 import axios from "axios";
 import "./App.css";
+import Popup from "./components/Popup";
+import { isExpired } from "react-jwt";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [data, setData] = useState([]);
-  const [tokenExpiration, setTokenExpiration] = useState(0);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [isTokenExpired, setIsTokenExpired] = useState(false);
+
+  const togglePopup = async () => {
+    setIsPopupOpen(!isPopupOpen);
+    // const url = "http://localhost:8000/data/getAllData"
+    // const response = await fetch(url);
+    // const data = await response.json();
+    // setData(data?.response);
+  };
 
   useEffect(() => {
-    const checkLoggedInStatus = () => {
-      const loggedInStatus = localStorage.getItem('isAuthenticated');
-      setIsAuthenticated(loggedInStatus === 'true');
-    };
-    checkLoggedInStatus();
+    const storedToken = localStorage.getItem('isAuthenticated');
+    if (storedToken) {
+      setIsAuthenticated(true);
+    }
+    const tokenCheck = isExpired(localStorage.getItem('isAuthenticated'));
+    setIsTokenExpired(tokenCheck);
   }, []);
 
   const handleLogin = async (email, password) => {
@@ -27,11 +39,8 @@ function App() {
       });
       console.log(response);
       if (response.status === 200) {
-        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('isAuthenticated', response.data.access_token);
         setIsAuthenticated(true);
-        const tokenExpiration = new Date(new Date().getTime() + 3600 * 1000);
-        localStorage.setItem('tokenExpiration', tokenExpiration);
-        setTokenExpiration(tokenExpiration);
       }
     } catch (error) {
       console.error("Login failed", error);
@@ -39,30 +48,21 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.setItem('isAuthenticated', 'false');
-    localStorage.setItem('tokenExpiration', 0);
     setIsAuthenticated(false);
-    setTokenExpiration(0);
+    localStorage.removeItem('isAuthenticated');
   };
 
-  const handleAddData = async () => {};
+  const handleAddData = async () => { };
 
-  if (!isAuthenticated) {
-      if(tokenExpiration > 0) {
-        const newTime = new Date();
-        if(newTime.getTime() - tokenExpiration.getTime() >= 0) {
-          return <Login onLogin={handleLogin} />;
-        }
-      }
-      else {
-        return <Login onLogin={handleLogin} />; 
-      }
-    }
+  if (!isAuthenticated || isTokenExpired) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="App">
       <Header onLogout={handleLogout} />
-      <AddDataForm onAddData={handleAddData} />
+      <button className="add-data-btn" onClick={togglePopup}>Add Data</button>
+      <Popup isOpen={isPopupOpen} onClose={togglePopup} />
       <DataTable data={data} />
     </div>
   );
